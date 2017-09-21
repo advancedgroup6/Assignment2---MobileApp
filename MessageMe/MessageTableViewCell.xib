@@ -39,16 +39,16 @@
                         <nil key="highlightedColor"/>
                     </label>
                     <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="right" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="xjq-uz-YW1">
-                        <rect key="frame" x="267" y="15" width="100" height="17"/>
+                        <rect key="frame" x="267" y="15" width="100" height="14.5"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="100" id="2ft-nl-BsO"/>
                         </constraints>
-                        <fontDescription key="fontDescription" type="system" pointSize="14"/>
+                        <fontDescription key="fontDescription" type="system" pointSize="12"/>
                         <nil key="textColor"/>
                         <nil key="highlightedColor"/>
                     </label>
                     <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="wFW-e6-92r">
-                        <rect key="frame" x="322" y="33" width="45" height="45"/>
+                        <rect key="frame" x="322" y="30.5" width="45" height="45"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="45" id="L0d-Va-DZp"/>
                             <constraint firstAttribute="height" constant="45" id="NoJ-zK-hat"/>

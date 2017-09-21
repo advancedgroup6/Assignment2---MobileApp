@@ -119,7 +119,6 @@ class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelega
             // alert saying cant view here, go in the region to unlock
             
         }
-        
     }
     
     private func pushToRead(message:Message){
