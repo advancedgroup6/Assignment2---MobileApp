@@ -14,11 +14,12 @@ class ComposeMessageViewController: UIViewController,  UITextViewDelegate, UITex
     @IBOutlet weak var txtFieldSendTo: UITextField!
     @IBOutlet weak var txtFieldRegion: UITextField!
     @IBOutlet weak var txtViewMessage: UITextView!
-    
+    var receiverName:String? = nil
     @IBOutlet weak var bottomSpaceConstraint: NSLayoutConstraint!
     var objMessage:Message?{
         willSet{
             if newValue?.strRegionName != nil && newValue?.strSenderName != nil {
+                self.receiverName = newValue?.strSenderName
                 self.perform(#selector(prepareUIForReply), with: nil, afterDelay: 0.1)
             }
         }
@@ -215,7 +216,8 @@ class ComposeMessageViewController: UIViewController,  UITextViewDelegate, UITex
     }
     
     private func postMessageToServer(){
-        let params = ["sender":Common.inSessionUser!.strName!, "receiver":objMessage!.strSenderName!, "msg":objMessage!.strContent!, "majorminor":objMessage!.strMajorMinor!]
+
+        let params = ["sender":Common.inSessionUser!.strName!, "receiver":self.receiverName != nil ? self.receiverName : objMessage?.strTo, "msg":objMessage!.strContent!, "majorminor":objMessage!.strMajorMinor!] as [String : Any]
         
         Alamofire.request(
             URL(string: "http://18.220.138.212:8080/sendMsg")!,

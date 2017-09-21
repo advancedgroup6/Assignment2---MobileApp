@@ -10,7 +10,7 @@ import UIKit
 import Alamofire
 
 class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelegate {
-    var dictMessages:[String:[Message]]! = [:]
+    var dictMessages:[Message]! = []
     var arrRegions:[Beacon]! = []
     let beaconManager = ESTBeaconManager()
     let beaconRegion = CLBeaconRegion(
@@ -50,7 +50,7 @@ class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelega
         self.beaconManager.stopRangingBeacons(in: self.beaconRegion)
     }
     override func viewWillAppear(_ animated: Bool) {
-//        self.beaconManager.startRangingBeacons(in: self.beaconRegion)
+        self.beaconManager.startRangingBeacons(in: self.beaconRegion)
         super.viewWillAppear(animated)
         if !isMovingFromParentViewController {
             fetchAllMessages()
@@ -69,10 +69,10 @@ class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelega
 
     override func numberOfSections(in tableView: UITableView) -> Int {
         // #warning Incomplete implementation, return the number of sections
-        if let dictMessages = self.dictMessages {
-            return dictMessages.keys.count
-        }
-        return 0
+//        if let dictMessages = self.dictMessages {
+//            return dictMessages.keys.count
+//        }
+        return 1// dictMessages.count
     }
 
     @IBAction func refreshMessagesAction(_ sender: Any) {
@@ -81,19 +81,20 @@ class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelega
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         // #warning Incomplete implementation, return the number of rows
-        if let region = arrRegions?[section]{
-            if let arrMessages = dictMessages?[region.strMajorMinor] {
-                return arrMessages.count
-            }
-        }
-        return 0
+//        if let region = arrRegions?[section]{
+//            if let arrMessages = dictMessages?[region.strMajorMinor] {
+//                return arrMessages.count
+//            }
+//        }
+        return self.dictMessages.count
     }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: MessageCellTableViewCell.cellReuseID, for: indexPath) as! MessageCellTableViewCell
-        let objRegion = arrRegions![indexPath.section];
+//        let objRegion = arrRegions![indexPath.section]
 //        let objMessage = dictMessages![objRegion.strRegionName]![indexPath.row];
-        let objMessage = dictMessages![objRegion.strMajorMinor]![indexPath.row];
+//        let objMessage = dictMessages![objRegion.strMajorMinor]![indexPath.row];
+        let objMessage = dictMessages[indexPath.row]
         cell.populateCellData(withMessage:objMessage)
         // Configure the cell...
         return cell
@@ -105,8 +106,9 @@ class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelega
     }
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        let regionName = arrRegions![indexPath.section].strMajorMinor
-        let message = (dictMessages[regionName!]?[indexPath.row])!
+//        let regionName = arrRegions![indexPath.section].strMajorMinor
+//        let message = (dictMessages[regionName!]?[indexPath.row])!
+        let message = dictMessages[indexPath.row]
         if canViewMessage(message: message){
             if (message.isRead)! {
                 pushToRead(message:message)
@@ -166,17 +168,22 @@ class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelega
                     return
                 }
                 if let status = dict["status"] as? String, let arrMessages = dict["msgList"] as? [[String:Any?]] {
-                    if status == "200", self.arrRegions.count != 0 {
-                        for beacon in self.arrRegions! {
-                            var arrForRegion = [Message]()
-                            for dictMsg in arrMessages {
-                                let message = Message(withParams:dictMsg)
-                                if message.strRegionName == beacon.strMajorMinor {
-                                    arrForRegion.append(message)
-                                }
-                            }
-                            // sort by date here.
-                            self.dictMessages?[beacon.strMajorMinor] = arrForRegion
+                    if status == "200" {
+                        self.dictMessages.removeAll()
+//                        for beacon in self.arrRegions! {
+//                            var arrForRegion = [Message]()
+//                            for dictMsg in arrMessages {
+//                                let message = Message(withParams:dictMsg)
+//                                if message.strRegionName == beacon.strMajorMinor {
+//                                    arrForRegion.append(message)
+//                                }
+//                            }
+//                            // sort by date here.
+//                            self.dictMessages?[beacon.strMajorMinor] = arrForRegion
+//                        }
+                        for dictMessage in arrMessages {
+                            let message = Message(withParams: dictMessage)
+                            self.dictMessages.append(message)
                         }
                         self.tableView.reloadData()
                     }else {
@@ -215,11 +222,15 @@ class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelega
     
     func performLockRefresh(){
         let nearestBeacon = self.arrRegions.first
-        let arrNearestBeaconMessages = self.dictMessages[(nearestBeacon?.strMajorMinor)!]
-        for message in arrNearestBeaconMessages! {
-            markUnlocked(message: message)
+//        let arrNearestBeaconMessages = self.dictMessages[(nearestBeacon?.strMajorMinor)!]
+        for message in self.dictMessages! {
+            if nearestBeacon?.strMajorMinor == message.strMajorMinor{
+                markUnlocked(message: message)
+            }
         }
-        self.perform(#selector(fetchAllMessages), with: nil, afterDelay: 1.0)
+        DispatchQueue.main.async {
+            self.perform(#selector(self.fetchAllMessages), with: nil, afterDelay: 1.0)
+        }
     }
     
     
