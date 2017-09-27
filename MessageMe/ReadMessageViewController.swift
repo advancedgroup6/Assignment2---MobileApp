@@ -51,8 +51,10 @@ class ReadMessageViewController: UIViewController {
     
     
     private func deleteMessage(){
+        let url = Services.wsBaseURL + Services.wsDeleteMessage + "/" + objMessage!.strMessageID! + "/" + Common.inSessionUser!.strSessionToken! + "/" + Common.inSessionUser!.strEmailID!
+        print(url)
         Alamofire.request(
-            URL(string: "http://18.220.138.212:8080/deleteMsg/"+objMessage.strMessageID)!,
+            URL(string: Services.wsBaseURL + Services.wsDeleteMessage + "/" + objMessage!.strMessageID! + "/" + Common.inSessionUser!.strSessionToken! + "/" + Common.inSessionUser!.strEmailID!)!,
             method: .get,
             parameters: [:])
             .validate()
@@ -64,12 +66,26 @@ class ReadMessageViewController: UIViewController {
                 if let status = dict["status"] as? String{
                     if status == "200" {
                         self.navigationController?.popViewController(animated: true)
-                        // alert to say message successfully deleted
+                        self.displayAlertAndPop()
+                    }else if status == "500" {
+                        Common.displayAlert(message: "Session expired, please login again.", onViewController: self)
+                        DispatchQueue.main.async {
+                            self.navigationController?.popToRootViewController(animated: false)
+                        }
                     }
                 }
                 print(response)
         }
-        
+    }
+    
+    private func displayAlertAndPop(){
+        let alert = UIAlertController(title:"Success", message:"Your message has successfully been deleted!", preferredStyle:.alert)
+        alert.addAction(UIAlertAction(title:"ok", style:.default, handler: nil))
+        self.navigationController?.present(alert, animated: true, completion: {
+            DispatchQueue.main.async {
+                self.navigationController?.popViewController(animated: true)
+            }
+        })
     }
     
     // mark read service

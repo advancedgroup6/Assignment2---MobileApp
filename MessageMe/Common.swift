@@ -31,4 +31,12 @@ class Common:NSObject{
         btn.setImage(img, for: .normal)
         return btn
     }
+    
+    static func displayAlert(message:String, onViewController vc:UIViewController){
+        var myAlert = UIAlertController(title:"Alert", message: message, preferredStyle: UIAlertControllerStyle.alert)
+        let okAction = UIAlertAction(title:"OK", style:UIAlertActionStyle.default, handler:nil)
+        myAlert.addAction(okAction)
+        vc.present(myAlert, animated: true, completion: nil)
+        
+    }
 }

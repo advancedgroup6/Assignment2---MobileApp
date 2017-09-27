@@ -93,20 +93,25 @@ class ComposeMessageViewController: UIViewController,  UITextViewDelegate, UITex
    
     
     private func presentRegionPickerActionSheet(){
-        let actionSheet = UIAlertController(title:"Select Region", message:nil, preferredStyle:.actionSheet)
-        for beacon in arrRegions {
-            actionSheet.addAction(UIAlertAction(title:beacon.strRegionName, style:.default) { action in
-                if self.objMessage == nil {
-                    self.objMessage = Message()
-                }
-                self.objMessage!.strMajor = beacon.strMajor
-                self.objMessage!.strMinor = beacon.strMinor
-                self.objMessage?.strMajorMinor = beacon.strMajorMinor
-                self.objMessage?.strRegionName = beacon.strRegionName
-                self.txtFieldRegion.text = self.objMessage?.strRegionName
-            })
+        if self.arrRegions != nil {
+            let actionSheet = UIAlertController(title:"Select Region", message:nil, preferredStyle:.actionSheet)
+            for beacon in arrRegions {
+                actionSheet.addAction(UIAlertAction(title:beacon.strRegionName, style:.default) { action in
+                    if self.objMessage == nil {
+                        self.objMessage = Message()
+                    }
+                    self.objMessage!.strMajor = beacon.strMajor
+                    self.objMessage!.strMinor = beacon.strMinor
+                    self.objMessage?.strMajorMinor = beacon.strMajorMinor
+                    self.objMessage?.strRegionName = beacon.strRegionName
+                    self.txtFieldRegion.text = self.objMessage?.strRegionName
+                })
+            }
+            self.present(actionSheet, animated: true, completion: nil)
+        }else{
+            fetchAllRegions()
+            presentRegionPickerActionSheet()
         }
-        self.present(actionSheet, animated: true, completion: nil)
     }
     
     func textViewDidBeginEditing(_ textView: UITextView) {
@@ -131,22 +136,30 @@ class ComposeMessageViewController: UIViewController,  UITextViewDelegate, UITex
     
     
     private func presentNamesPickerActionSheet(){
-        let actionSheet = UIAlertController(title:"Select Receiver", message:nil, preferredStyle:.actionSheet)
-        for user in arrUsers {
-            actionSheet.addAction(UIAlertAction(title:user.strEmailID, style:.default) { action in
-                if self.objMessage == nil {
-                    self.objMessage = Message()
-                }
-                self.objMessage?.strTo = action.title
-                self.txtFieldSendTo.text = self.objMessage?.strTo
+        if self.arrUsers != nil{
+            let actionSheet = UIAlertController(title:"Select Receiver", message:nil, preferredStyle:.actionSheet)
+            for user in arrUsers {
+                actionSheet.addAction(UIAlertAction(title:user.strEmailID, style:.default) { action in
+                    if self.objMessage == nil {
+                        self.objMessage = Message()
+                    }
+                    self.objMessage?.strTo = action.title
+                    self.txtFieldSendTo.text = self.objMessage?.strTo
+                })
+            }
+            actionSheet.addAction(UIAlertAction(title:"Dismiss", style:.cancel) { action in
+                actionSheet.dismiss(animated: true, completion: nil)
             })
+            self.present(actionSheet, animated: true, completion: nil)
+        }else{
+            fetchAllUsers()
+            presentNamesPickerActionSheet()
         }
-        self.present(actionSheet, animated: true, completion: nil)
     }
     
     private func fetchAllRegions(){
         Alamofire.request(
-            URL(string: "http://18.220.138.212:8080/getAllRegions")!,
+            URL(string: Services.wsBaseURL + "getAllRegions/" + Common.inSessionUser!.strSessionToken! + "/" + Common.inSessionUser!.strEmailID!)!,
             method: .get,
             parameters: [:])
             .validate()
@@ -162,6 +175,11 @@ class ComposeMessageViewController: UIViewController,  UITextViewDelegate, UITex
                         for dictRegion in arrRegionsList {
                             let region = Beacon(params:dictRegion)
                             self.arrRegions.append(region)
+                        }
+                    } else if status == "500" {
+                        Common.displayAlert(message: "Session expired, please login again.", onViewController: self)
+                        DispatchQueue.main.async {
+                            self.navigationController?.popToRootViewController(animated: false)
                         }
                     }
                 }
@@ -179,7 +197,7 @@ class ComposeMessageViewController: UIViewController,  UITextViewDelegate, UITex
     
     private func fetchAllUsers(){
         Alamofire.request(
-            URL(string: "http://18.220.138.212:8080/getAllUsers")!,
+            URL(string: Services.wsBaseURL + "getAllUsers/" + Common.inSessionUser!.strSessionToken! + "/" + Common.inSessionUser!.strEmailID!)!,
             method: .get,
             parameters: [:])
             .validate()
@@ -195,9 +213,14 @@ class ComposeMessageViewController: UIViewController,  UITextViewDelegate, UITex
                             self.arrUsers.append(user)
                             print(self.arrUsers)
                         }
+                    }else if status == "500" {
+                        Common.displayAlert(message: "Session expired, please login again.", onViewController: self)
+                        DispatchQueue.main.async {
+                            self.navigationController?.popToRootViewController(animated: false)
+                        }
                     }
                 }
-                
+        
 //                guard let value = response.result.value as? [String: Any],
 //                    let rows = value["rows"] as? [[String: Any]] else {
 //                        print("Malformed data received from fetchAllRooms service")
@@ -209,7 +232,7 @@ class ComposeMessageViewController: UIViewController,  UITextViewDelegate, UITex
     }
     
     private func validMessage() -> Bool {
-        if objMessage?.strMajorMinor.characters.count != 0 && objMessage?.strSenderName?.characters.count != 0 && objMessage?.strContent?.characters.count != 0{
+        if objMessage != nil && objMessage?.strMajorMinor.characters.count != 0 && objMessage?.strSenderName?.characters.count != 0 && objMessage?.strContent?.characters.count != 0{
             return true
         }
         return false
@@ -217,10 +240,10 @@ class ComposeMessageViewController: UIViewController,  UITextViewDelegate, UITex
     
     private func postMessageToServer(){
 
-        let params = ["sender":Common.inSessionUser!.strName!, "receiver":self.receiverName != nil ? self.receiverName : objMessage?.strTo, "msg":objMessage!.strContent!, "majorminor":objMessage!.strMajorMinor!] as [String : Any]
+        let params = ["sender":Common.inSessionUser!.strEmailID!, "receiver":self.receiverName != nil ? self.receiverName! : objMessage!.strTo!, "msg":objMessage!.strContent!, "majorminor":objMessage!.strMajorMinor!, "token":Common.inSessionUser!.strSessionToken!] as [String : Any]
         
         Alamofire.request(
-            URL(string: "http://18.220.138.212:8080/sendMsg")!,
+            URL(string: Services.wsBaseURL + "sendMsg")!,
             method: .post,
             parameters: params)
             .validate(contentType: ["application/json"])
@@ -232,12 +255,28 @@ class ComposeMessageViewController: UIViewController,  UITextViewDelegate, UITex
                 }
                 if let status = dict["status"] as? String {
                     if status == "200" {
-                        // present message post success alert
-                        self.navigationController?.popViewController(animated: true)
+                        self.displayAlertAndPop()
+                    }else if status == "500" {
+                    Common.displayAlert(message: "Session expired, please login again.", onViewController: self)
+                    DispatchQueue.main.async {
+                        self.navigationController?.popToRootViewController(animated: false)
                     }
+                }
+
                 }
         }
     }
+
+    private func displayAlertAndPop(){
+        let alert = UIAlertController(title:"Success", message:"Your message has successfully been posted!", preferredStyle:.alert)
+        alert.addAction(UIAlertAction(title:"ok", style:.default, handler: nil))
+        self.navigationController?.present(alert, animated: true, completion: { 
+            DispatchQueue.main.async {
+                self.navigationController?.popViewController(animated: true)
+            }
+        })
+    }
+    
     func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
         return false
     }

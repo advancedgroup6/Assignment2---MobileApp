@@ -10,6 +10,7 @@ import UIKit
 
 class ViewController: UIViewController, UITextFieldDelegate {
     
+    @IBOutlet weak var txtFieldConfirmPassword: UITextField!
     @IBOutlet weak var txtFieldName: UITextField!
     
     @IBOutlet weak var txtFieldPhoneNo: UITextField!
@@ -56,6 +57,11 @@ class ViewController: UIViewController, UITextFieldDelegate {
     
     private func validFields() -> Bool{
         if txtFieldName.text?.characters.count == 0 || txtFieldEmailID.text?.characters.count == 0 || txtFieldAddress.text?.characters.count == 0 || txtFieldPhoneNo.text?.characters.count == 0 || txtFieldPassword.text?.characters.count == 0 {
+            return false
+        }
+        
+        if txtFieldPassword.text != txtFieldConfirmPassword.text{
+            Common.displayAlert(message: "Password and confirm password fields do not match", onViewController: self)
             return false
         }
         return true

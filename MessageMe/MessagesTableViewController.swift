@@ -10,6 +10,7 @@ import UIKit
 import Alamofire
 
 class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelegate {
+    var refreshCounter = 0
     var dictMessages:[Message]! = []
     var arrRegions:[Beacon]! = []
     let beaconManager = ESTBeaconManager()
@@ -27,28 +28,19 @@ class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelega
 
     override func viewDidLoad() {
         self.beaconManager.delegate = self
-        // 4. We need to request this authorization for every beacon manager
         self.beaconManager.requestAlwaysAuthorization()
         NotificationCenter.default.addObserver(self, selector: #selector(regionUpdatesReceived), name:  NSNotification.Name(rawValue: "RegionUpdates"), object: nil)
         super.viewDidLoad()
-
-//        self.tableView.register(MessageCellTableViewCell.self, forCellReuseIdentifier:
-//            MessageCellTableViewCell.cellReuseID)
         self.tableView.register(UINib(nibName:"MessageTableViewCell", bundle:nil), forCellReuseIdentifier: MessageCellTableViewCell.cellReuseID)
         self.navigationItem.setHidesBackButton(true, animated: false)
-//        self.fetchAllMessages()
-        // Uncomment the following line to preserve selection between presentations
-        // self.clearsSelectionOnViewWillAppear = false
-
-        // Uncomment the following line to display an Edit button in the navigation bar for this view controller.
-        // self.navigationItem.rightBarButtonItem = self.editButtonItem()
+        self.tableView.estimatedRowHeight = 85.0
     }
-
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         self.beaconManager.stopRangingBeacons(in: self.beaconRegion)
     }
+    
     override func viewWillAppear(_ animated: Bool) {
         self.beaconManager.startRangingBeacons(in: self.beaconRegion)
         super.viewWillAppear(animated)
@@ -62,16 +54,10 @@ class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelega
     }
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
     }
 
-    // MARK: - Table view data source
 
     override func numberOfSections(in tableView: UITableView) -> Int {
-        // #warning Incomplete implementation, return the number of sections
-//        if let dictMessages = self.dictMessages {
-//            return dictMessages.keys.count
-//        }
         return 1// dictMessages.count
     }
 
@@ -80,44 +66,29 @@ class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelega
     }
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        // #warning Incomplete implementation, return the number of rows
-//        if let region = arrRegions?[section]{
-//            if let arrMessages = dictMessages?[region.strMajorMinor] {
-//                return arrMessages.count
-//            }
-//        }
+
         return self.dictMessages.count
     }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: MessageCellTableViewCell.cellReuseID, for: indexPath) as! MessageCellTableViewCell
-//        let objRegion = arrRegions![indexPath.section]
-//        let objMessage = dictMessages![objRegion.strRegionName]![indexPath.row];
-//        let objMessage = dictMessages![objRegion.strMajorMinor]![indexPath.row];
         let objMessage = dictMessages[indexPath.row]
         cell.populateCellData(withMessage:objMessage)
-        // Configure the cell...
         return cell
     }
     
-    func canViewMessage(message:Message) -> Bool{
-        // all beacon activity
-        return true
-    }
-    
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-//        let regionName = arrRegions![indexPath.section].strMajorMinor
-//        let message = (dictMessages[regionName!]?[indexPath.row])!
         let message = dictMessages[indexPath.row]
-        if canViewMessage(message: message){
+        if !message.isLocked {
             if (message.isRead)! {
+                self.tableView.deselectRow(at: indexPath, animated: true)
                 pushToRead(message:message)
             }else{
-                markMessageRead(message: message)
+                markMessageRead(message: message, forIndexPath: indexPath)
             }
         }else{
-            // alert saying cant view here, go in the region to unlock
-            
+            Common.displayAlert(message: "This message is locked, please move to the region and try again.", onViewController: self)
+            self.tableView.deselectRow(at: indexPath, animated: true)
         }
     }
     
@@ -128,9 +99,9 @@ class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelega
         self.navigationController?.pushViewController(readMessageVC, animated: true)
     }
     
-    private func markMessageRead(message:Message!){
+    private func markMessageRead(message:Message!, forIndexPath indexPath:IndexPath){
         Alamofire.request(
-            URL(string: "http://18.220.138.212:8080/updateMsgRead/" + message.strMessageID)!,
+            URL(string: Services.wsBaseURL + Services.wsMarkMessageRead + "/`" +  message.strMessageID + "/" + Common.inSessionUser!.strSessionToken! + "/" + Common.inSessionUser!.strEmailID!)!,
             method: .get,
             parameters: [:])
             .validate()
@@ -142,22 +113,22 @@ class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelega
                 if let status = dict["status"] as? String {
                     if status == "200" {
                         message.isRead = true
+                        self.tableView.deselectRow(at: indexPath, animated: true)
                         self.pushToRead(message: message)
                     }else {
-                        // turn animator off and show alert for no messages, please try later
                     }
                 }
         }
     }
    
     override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return 85
+        return UITableViewAutomaticDimension
     }
     
      func fetchAllMessages(){
         let userID = Common.inSessionUser?.strEmailID
         Alamofire.request(
-            URL(string: "http://18.220.138.212:8080/getMessages/" + userID!)!,
+            URL(string: Services.wsBaseURL + "getMessages/" + userID! + "/" + Common.inSessionUser!.strSessionToken!)!,
             method: .get,
             parameters: [:])
             .validate()
@@ -169,32 +140,25 @@ class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelega
                 if let status = dict["status"] as? String, let arrMessages = dict["msgList"] as? [[String:Any?]] {
                     if status == "200" {
                         self.dictMessages.removeAll()
-//                        for beacon in self.arrRegions! {
-//                            var arrForRegion = [Message]()
-//                            for dictMsg in arrMessages {
-//                                let message = Message(withParams:dictMsg)
-//                                if message.strRegionName == beacon.strMajorMinor {
-//                                    arrForRegion.append(message)
-//                                }
-//                            }
-//                            // sort by date here.
-//                            self.dictMessages?[beacon.strMajorMinor] = arrForRegion
-//                        }
                         for dictMessage in arrMessages {
                             let message = Message(withParams: dictMessage)
                             self.dictMessages.append(message)
                         }
                         self.tableView.reloadData()
-                    }else {
-                        // turn animator off and show alert for no messages, please try later
+                    }else if status == "500" {
+                        Common.displayAlert(message: "Session expired, please login again.", onViewController: self)
+                        DispatchQueue.main.async {
+                            self.navigationController?.popToRootViewController(animated: false)
+                        }
                     }
+                
                 }
         }
     }
     
-    func markUnlocked(message:Message){
+    func markUnlocked(beacon:Beacon){
         Alamofire.request(
-            URL(string: "http://18.220.138.212:8080/updateMsgLock/" + message.strMessageID)!,
+            URL(string: Services.wsBaseURL + Services.wsMarkUnlocked + "/" +  Common.inSessionUser!.strEmailID! + "/" + beacon.strMajorMinor + "/" + Common.inSessionUser!.strEmailID!)!,
             method: .get,
             parameters: [:])
             .validate()
@@ -205,8 +169,12 @@ class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelega
                 }
                 if let status = dict["status"] as? String {
                     if status == "200" {
-                        message.isLocked = false
-                        self.pushToRead(message: message)
+                        for message in self.dictMessages! {
+                            if beacon.strMajorMinor == message.strMajorMinor{
+                                message.isLocked = false
+                            }
+                        }
+                        self.tableView.reloadData()
                     }else {
                         // turn animator off and show alert for no messages, please try later
                     }
@@ -215,23 +183,12 @@ class MessagesTableViewController: UITableViewController, ESTBeaconManagerDelega
         
     }
     
-    func reloadTable(){
-        self.tableView.reloadData()
-    }
-    
+
     func performLockRefresh(){
-        let nearestBeacon = self.arrRegions.first
-//        let arrNearestBeaconMessages = self.dictMessages[(nearestBeacon?.strMajorMinor)!]
-        for message in self.dictMessages! {
-            if nearestBeacon?.strMajorMinor == message.strMajorMinor{
-                markUnlocked(message: message)
-            }
-        }
-        DispatchQueue.main.async {
-            self.perform(#selector(self.fetchAllMessages), with: nil, afterDelay: 1.0)
+        if let firstBeacon = self.arrRegions.first {
+            markUnlocked(beacon: firstBeacon)
         }
     }
-    
     
     func cancel() {
         NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(performLockRefresh), object: nil)
